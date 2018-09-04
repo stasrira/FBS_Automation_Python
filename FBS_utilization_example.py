@@ -1,4 +1,17 @@
 import FBS_automation as fbs
+import datetime
+
+def saveScan(ScanRes, fileName = ""):
+	#if no file name provided
+	if fileName == "":
+		d=datetime.datetime.now()
+		ds = str(d.year)+str(100+d.month)[-2:]+str(100+d.day)[-2:]+str(100+d.hour)[-2:]+str(100+d.minute)[-2:]+str(100+d.second)[-2:]
+		fileName = "scan_res_" + str(ds)+ ".txt"
+	
+	sc_res_file=open(fileName,'w')
+	sc_res_file.write(ScanRes)
+	sc_res_file.close()
+
 
 response = fbs.FBS_Scan()
 print ("**************************" + response["message"])
@@ -7,8 +20,11 @@ if response["status"] != 1:
 	print ("Last attempted operation: " + err["command"])
 	print ("Error details:" + err["error"])
 else:
-	print ("Scanned results:\r\n" + response["result"])
+	print ("Scanned results:\n" + response["result"])
+	saveScan (response["result"])
 	
 
-print ("For debuggin purposes. Returned info is below:")
+print ("\r\n>>>>>>>>>>>>>For debuggin purposes. Returned info is below:")
 print (response)
+
+

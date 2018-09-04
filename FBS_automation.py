@@ -183,8 +183,8 @@ def FBS_Scan():
 		
 		#format scan results
 		sc_res = response["value"]
-		sc_res = sc_res.replace('Line End,', '\r\n') #replace header of the last column with the return and new line characters 
-		sc_res = sc_res.replace(',,end text,', ',' + rack_id + '\r\n') #replace "end text" column with the Rack_id value and the return and new line characters
+		sc_res = sc_res.replace('Line End,', '\n') #replace header of the last column with the return and new line characters 
+		sc_res = sc_res.replace(',,end text,', ',' + rack_id + '\n') #replace "end text" column with the Rack_id value and the return and new line characters
 		#printL (sc_res)
 		out_FBS ["result"] = sc_res
 		out_FBS ["status"] = 1
