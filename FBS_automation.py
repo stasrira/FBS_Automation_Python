@@ -12,23 +12,38 @@ cmd_get_scanresult = 'get scanresult'
 #********************************************
 
 def OpenSocket (ip_addr, port):
+	out = {"status":"", "command":"", "value":"", "error":""} #create empty output dictionary as default response
 	# create socket
+	print (sys.argv)
 	print('# Creating socket')
 	try:
 		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	except socket.error:
 		print('Failed to create socket')
-		sys.exit()
+		out["status"] = ''
+		out["command"] = 'Create socket'
+		out["error"] = 'Failed to create socket'
+		# sys.exit()
+		return out
 		
 	# Connect to remote server
 	print('# Connecting to server, ' + remote_ip + ' (' + str(port) + ')')
 	# s.connect((remote_ip , port))
+	out["command"] = 'connect: ' + remote_ip + ' (' + str(port) + ')'
+	
 	err = s.connect_ex((remote_ip , port))
-	#print (err)
+	
 	if err > 0:
-		print ('Connectoin to the server - ' + remote_ip + ' (' + str(port) + ')' + ' - cannot be established. Returned error: ' + str(err))
+		out["error"] = 'Connectoin to the server - ' + remote_ip + ' (' + str(port) + ')' + ' - cannot be established. Returned error: ' + str(err)
+		#print ('Connectoin to the server - ' + remote_ip + ' (' + str(port) + ')' + ' - cannot be established. Returned error: ' + str(err))
+		out["status"] = ''
 		s = None
-	return s
+	else:
+		out["status"] = 'OK'
+	
+	out["value"] = s
+	#return s
+	return out
 
 def SendData (var_socket, request):
 	print(request)
@@ -90,34 +105,108 @@ def ReadResponse (list, orig_command):
 		out["error"] = "No data was returned."
 	return out
 	
-s = OpenSocket(remote_ip, port)
-if s is not None:
-	#********************************************
-	# Get Rack ID
-	SendData (s, cmd_read_rackid)
-	reply = RecvResponse(s, 1024, 0.5)
-	response = ReadResponse(reply, cmd_read_rackid) #returns dictionary with 3 values: status, command, value
-	print (response)
 
-	#Scan Box
-	SendData (s, cmd_scan_box)
-	reply = RecvResponse(s, 1024, 5)
-	response = ReadResponse(reply, cmd_scan_box) #returns dictionary with 3 values: status, command, value
-	print (response)
+def updateOutDict (out, status, value, message, error):
+	out ["value"] = value
+	out ["status"] = status
+	out ["message"] = message
+	out ["error_details"] = error
+	return out
+	
+def FBS_Scan():
+	
+	out_FBS = {"status":"", "result":"", "message":"", "error_details":""} #create empty FBS Scanner output dictionary as default response
+	response = {"status":"", "command":"", "value":"", "error":""} #create an empty TCP/IP default response dictionary 
+	
+	response = OpenSocket(remote_ip, port)
 
-	#Get readiness state
-	SendData (s, cmd_state)
-	reply = RecvResponse(s, 1024)
-	response = ReadResponse(reply, cmd_state) #returns dictionary with 3 values: status, command, value
-	print (response)
+	if response["status"] == 'OK':
+		s = response["value"]
+	else:
+		print (response["error"])
+		#sys.exit(-1)
+		updateOutDict (out_FBS, -1, "", "Scanning was aborted!", response)
+		#print (out_FBS)
+		return out_FBS
 
+	if s is not None:
+		#********************************************
+		# Get Rack ID
+		SendData (s, cmd_read_rackid)
+		reply = RecvResponse(s, 1024, 0.5)
+		response = ReadResponse(reply, cmd_read_rackid) #returns dictionary with 3 values: status, command, value
+		#print (response)
+		if response["status"] != 'OK':
+			updateOutDict (out_FBS, -1, "", "Scanning was aborted!", response)
+			if s is not None:
+				s.close()
+			return out_FBS
+		
+		rack_id = response ["value"]
 
-	#Get Scan results
-	SendData (s, cmd_get_scanresult)
-	reply = RecvResponse(s, 10240)
-	response = ReadResponse(reply, cmd_get_scanresult) #returns dictionary with 3 values: status, command, value
-	print (response)
+		#Scan Box
+		SendData (s, cmd_scan_box)
+		reply = RecvResponse(s, 1024, 5)
+		response = ReadResponse(reply, cmd_scan_box) #returns dictionary with 3 values: status, command, value
+		print (response)
+		if response["status"] != 'OK':
+			updateOutDict (out_FBS, -1, "", "Scanning was aborted!", response)
+			if s is not None:
+				s.close()
+			return out_FBS
 
-	s.close()#is this required here?
-else:
-	print('Scanning was aborted!')
+		#Get readiness state
+		SendData (s, cmd_state)
+		reply = RecvResponse(s, 1024)
+		response = ReadResponse(reply, cmd_state) #returns dictionary with 3 values: status, command, value
+		print (response)
+		if response["status"] != 'OK':
+			updateOutDict (out_FBS, -1, "", "Scanning was aborted!", response)
+			if s is not None:
+				s.close()
+			return out_FBS
+
+		#Get Scan results
+		SendData (s, cmd_get_scanresult)
+		reply = RecvResponse(s, 10240)
+		response = ReadResponse(reply, cmd_get_scanresult) #returns dictionary with 3 values: status, command, value
+		print (response["status"])
+		if response["status"] != 'OK':
+			updateOutDict (out_FBS, -1, "", "Scanning was aborted!", response)
+			if s is not None:
+				s.close()
+			return out_FBS
+		
+		#format scan results
+		sc_res = response["value"]
+		sc_res = sc_res.replace('Line End,', '\r\n') #replace header of the last column with the return and new line characters 
+		sc_res = sc_res.replace(',,end text,', ',' + rack_id + '\r\n') #replace "end text" column with the Rack_id value and the return and new line characters
+		#print (sc_res)
+		out_FBS ["result"] = sc_res
+		out_FBS ["status"] = 1
+		out_FBS ["message"] = "Scanning was successfully completed."
+		out_FBS ["error_details"] = ""
+
+		s.close()#is this required here?
+	else:
+		print('Scanning was aborted!')
+		response["status"] = "Not Connected"
+		response["error"] = "Socket is None"
+		response["command"] = ""
+		response["value"] = ""
+		out_FBS ["result"] = ""
+		out_FBS ["status"] = -1
+		out_FBS ["message"] = "Scanning was aborted!"
+		out_FBS ["error_details"] = response
+	
+	return out_FBS
+
+# call main function
+response = FBS_Scan()
+print ("++++++++++++++++++++++++++++Main output from scanner:")
+
+print ("===>Status: " + str(response["status"]))
+print ("===>Message: " + response["message"])
+print ("===>Error Details: ") 
+print (response["error_details"])
+print ("===>Value: " + response["result"])
