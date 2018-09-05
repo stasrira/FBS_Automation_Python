@@ -11,6 +11,7 @@ def saveScan(ScanRes, fileName = ""):
 	sc_res_file=open(fileName,'w')
 	sc_res_file.write(ScanRes)
 	sc_res_file.close()
+	print ("Scan was saved into a file: %s." % fileName)
 
 
 response = fbs.FBS_Scan()
@@ -21,10 +22,12 @@ if response["status"] != 1:
 	print ("Error details:" + err["error"])
 else:
 	print ("Scanned results:\n" + response["result"])
-	saveScan (response["result"])
+	ans = input ("Do you want to save the scan results into a file? (Y/N)")
+	if ans in ['y', 'Y']:
+		saveScan (response["result"])
 	
 
-print ("\r\n>>>>>>>>>>>>>For debuggin purposes. Returned info is below:")
-print (response)
+#print ("\r\n>>>>>>>>>>>>>For debuggin purposes. Returned info is below:")
+#print (response)
 
 
