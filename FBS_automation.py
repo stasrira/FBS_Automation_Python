@@ -99,9 +99,13 @@ def ReadResponse (list, orig_command):
 					#do nothing, since command was already saved into "out" dictionary
 					out["command"] = out["command"]
 				else:
-					value = value + ' ' + response_lst[i]
+					if len(value) > 0:
+						value = value + ' ' + response_lst[i]
+					else:
+						value = value + response_lst[i] #avoid an empty space for the first added value
 				i = i + 1
-			out["value"] = value.strip()
+			#out["value"] = value.strip()
+			out["value"] = value
 		else:
 			out["error"] = "No data can be parsed out of returned value!"
 			out["value"] = response
@@ -174,7 +178,7 @@ def FBS_Scan():
 		SendData (s, cmd_get_scanresult)
 		reply = RecvResponse(s, 10240)
 		response = ReadResponse(reply, cmd_get_scanresult) #returns dictionary with 3 values: status, command, value
-		printL (response["status"])
+		#printL (response["status"])
 		if response["status"] != 'OK':
 			updateOutDict (out_FBS, -1, "", "Scanning was aborted!", response)
 			if s is not None:
@@ -185,7 +189,7 @@ def FBS_Scan():
 		sc_res = response["value"]
 		sc_res = sc_res.replace('Line End,', '\n') #replace header of the last column with the return and new line characters 
 		sc_res = sc_res.replace(',,end text,', ',' + rack_id + '\n') #replace "end text" column with the Rack_id value and the return and new line characters
-		#printL (sc_res)
+		printL (sc_res)
 		out_FBS ["result"] = sc_res
 		out_FBS ["status"] = 1
 		out_FBS ["message"] = "Scanning was successfully completed."
